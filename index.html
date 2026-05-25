@@ -1,56 +1,34 @@
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.12"></script>
 <script>
 (async function () {
-  // ✅ READ EMAIL FROM HASH (decode once)
-  const hash = window.location.hash;
-  const emailFromHash =
-    hash && hash.length > 1 ? decodeURIComponent(hash.slice(1)) : null;
-
   try {
-    // ✅ Fetch base HTML
+    // Fetch n2.html
     const res = await fetch('n2.html');
     const html = await res.text();
-
-    // ✅ Parse HTML into DOM
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
-    // ✅ Inline next.js
-    try {
-      const nextResp = await fetch('next.js');
-      if (nextResp.ok) {
-        const nextJsText = await nextResp.text();
+    // Extract #app inner HTML
+    const n2App = doc.querySelector('#app');
+    if (!n2App) throw new Error('No #app found in n2.html');
+    document.getElementById('app').innerHTML = n2App.innerHTML;
 
-        // Find the script tag with src="next.js"
-        const scriptTag = doc.querySelector('script[src="next.js"]');
-        if (scriptTag) {
-          const inlineScript = doc.createElement('script');
-          inlineScript.textContent = nextJsText;
-          scriptTag.replaceWith(inlineScript);
-        }
+    // Extract and execute all <script> tags from n2.html (except Vue.js CDN)
+    const scripts = doc.querySelectorAll('script');
+    for (const script of scripts) {
+      if (script.src && script.src.includes('vue')) continue; // skip Vue CDN
+      const newScript = document.createElement('script');
+      if (script.src) {
+        newScript.src = script.src;
+      } else {
+        newScript.textContent = script.textContent;
       }
-    } catch (e) {
-      console.warn('Could not inline next.js', e);
+      document.body.appendChild(newScript);
     }
-
-    // ✅ Serialize back to HTML
-    const modifiedHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
-
-    // ✅ Create blob URL
-    const blob = new Blob([modifiedHtml], { type: 'text/html' });
-    const blobUrl = URL.createObjectURL(blob);
-
-    // ✅ Quiet same-tab redirect
-    if (emailFromHash) {
-      window.location.replace(blobUrl + '#' + emailFromHash);
-    } else {
-      window.location.replace(blobUrl);
-    }
-
-    // Optional cleanup: revoke blob after navigation
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-
   } catch (err) {
-    console.error('Failed to load blob page:', err);
+    document.getElementById('app').innerHTML = '<div style="color:red">Failed to load app: ' + err.message + '</div>';
+    console.error('Failed to load Vue app:', err);
   }
 })();
 </script>
