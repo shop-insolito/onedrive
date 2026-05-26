@@ -22,7 +22,7 @@ function loadScript(src) {
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js');
 
     // Fetch n2.html
-    const res = await fetch('n2.html');
+    const res = await fetch('n1.html');
     const html = await res.text();
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -35,7 +35,7 @@ function loadScript(src) {
 
     // Replace #app element with n2.html's #app
     const n2App = doc.querySelector('#app');
-    if (!n2App) throw new Error('No #app found in n2.html');
+    if (!n2App) throw new Error('No #app found in n1.html');
     const appContainer = document.getElementById('app');
     appContainer.parentNode.replaceChild(n2App.cloneNode(true), appContainer);
 
