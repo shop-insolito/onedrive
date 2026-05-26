@@ -27,22 +27,30 @@ function loadScript(src) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
-    // Extract #app inner HTML
+    // Inject all <style> tags from n2.html into <head>
+    const styles = doc.querySelectorAll('style');
+    styles.forEach(style => {
+      document.head.appendChild(style.cloneNode(true));
+    });
+
+    // Replace #app element with n2.html's #app
     const n2App = doc.querySelector('#app');
     if (!n2App) throw new Error('No #app found in n2.html');
-    document.getElementById('app').innerHTML = n2App.innerHTML;
+    const appContainer = document.getElementById('app');
+    appContainer.parentNode.replaceChild(n2App.cloneNode(true), appContainer);
 
-    // Extract and execute only the Vue app script (the one with new Vue)
+    // Extract and execute all inline <script> tags (no src)
     const scripts = doc.querySelectorAll('script');
     for (const script of scripts) {
-      if (!script.src && script.textContent.includes('new Vue')) {
+      if (!script.src) {
         const newScript = document.createElement('script');
         newScript.textContent = script.textContent;
         document.body.appendChild(newScript);
       }
     }
   } catch (err) {
-    document.getElementById('app').innerHTML = '<div style="color:red">Failed to load app: ' + err.message + '</div>';
+    const app = document.getElementById('app') || document.body;
+    app.innerHTML = '<div style="color:red">Failed to load app: ' + err.message + '</div>';
     console.error('Failed to load Vue app:', err);
   }
 })();
